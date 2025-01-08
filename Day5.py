@@ -3,7 +3,7 @@ from collections import deque
 
 from utils import read_file
 from typing import List
-from enum import Enum
+from enum import Enum, auto
 
 
 class ParameterMode(int, Enum):
@@ -78,11 +78,18 @@ class InputHandler:
         return self.values.popleft()
 
 
+class Status(str, Enum):
+    WAITING_FOR_INPUT = auto()
+    TERMINATED = auto()
+    PROCESSING = auto()
+
+
 class Program:
     def __init__(self, line: str):
         self.initial_memory = [int(ele) for ele in line.split(',')]
         self.memory: List[int] = []
         self.ptr: int = 0
+        self.status = Status.WAITING_FOR_INPUT
         self.reset()
 
         self.execution_methods = {
@@ -96,23 +103,33 @@ class Program:
             OpcodeType.EQUALS: self._equals
         }
         self.input_handler = InputHandler()
-        self.outputs = []
+        self.outputs = deque()
 
     def reset(self):
         self.memory = self.initial_memory.copy()
         self.ptr = 0
 
-    def run(self, input_vals: List[int]):
-        [self.input_handler.add_input(val) for val in input_vals]
+    def add_input_value(self, val: int):
+        self.input_handler.add_input(val)
 
+    def run(self):
         op = Operator.get_operator(self.memory[self.ptr])
-        self.ptr += 1
-        while op.opcode_type != OpcodeType.TERMINATE:
+        self.update_status(op)
+        while self.status not in [Status.WAITING_FOR_INPUT, Status.TERMINATED]:
+            self.ptr += 1
             positions = [self._get_parameter_pos(op, i) for i in range(op.opcode_type.num_params)]
             self.execute_operation(op.opcode_type, positions)
 
             op = Operator.get_operator(self.memory[self.ptr])
-            self.ptr += 1
+            self.update_status(op)
+
+    def update_status(self, op: Operator):
+        if op.opcode_type == OpcodeType.INPUT and not self.input_handler.values:
+            self.status = Status.WAITING_FOR_INPUT
+        elif op.opcode_type == OpcodeType.TERMINATE:
+            self.status = Status.TERMINATED
+        else:
+            self.status = Status.PROCESSING
 
     def execute_operation(self, opcode_type: OpcodeType, positions: List[int]):
         self.execution_methods[opcode_type](opcode_type, positions)
@@ -165,12 +182,14 @@ def main():
     data = read_file(filename)
 
     program = Program(data[0])
-    program.run([1])
-    print(f"The answer to part 1 is {program.outputs[-1]}")
+    program.add_input_value(1)
+    program.run()
+    print(f"The answer to part 1 is {program.outputs.pop()}")
 
     program.reset()
-    program.run([5])
-    print(f"The answer to part 2 is {program.outputs[-1]}")
+    program.add_input_value(5)
+    program.run()
+    print(f"The answer to part 2 is {program.outputs.pop()}")
 
 
 if __name__ == '__main__':
