@@ -1,4 +1,6 @@
 from __future__ import annotations
+from collections import deque
+
 from utils import read_file
 from typing import List
 from enum import Enum
@@ -67,10 +69,13 @@ class Operator:
 
 class InputHandler:
     def __init__(self):
-        self.value = None
+        self.values = deque()
 
-    def set_input(self, val: int):
-        self.value = val
+    def add_input(self, val: int):
+        self.values.append(val)
+
+    def get_input(self) -> int:
+        return self.values.popleft()
 
 
 class Program:
@@ -97,8 +102,8 @@ class Program:
         self.memory = self.initial_memory.copy()
         self.ptr = 0
 
-    def run(self, input_val: int):
-        self.input_handler.set_input(input_val)
+    def run(self, input_vals: List[int]):
+        [self.input_handler.add_input(val) for val in input_vals]
 
         op = Operator.get_operator(self.memory[self.ptr])
         self.ptr += 1
@@ -125,7 +130,7 @@ class Program:
         self.ptr += opcode_type.num_params
 
     def _input(self, opcode_type: OpcodeType, positions: List[int]):
-        self.memory[positions[0]] = self.input_handler.value
+        self.memory[positions[0]] = self.input_handler.get_input()
         self.ptr += opcode_type.num_params
 
     def _output(self, opcode_type: OpcodeType, positions: List[int]):
@@ -160,11 +165,11 @@ def main():
     data = read_file(filename)
 
     program = Program(data[0])
-    program.run(1)
+    program.run([1])
     print(f"The answer to part 1 is {program.outputs[-1]}")
 
     program.reset()
-    program.run(5)
+    program.run([5])
     print(f"The answer to part 2 is {program.outputs[-1]}")
 
 
