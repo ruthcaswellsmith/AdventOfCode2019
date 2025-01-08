@@ -4,7 +4,7 @@ from typing import Tuple
 from itertools import permutations
 
 from utils import read_file
-from Day5 import Program, Status
+from intcode import Program, Status
 
 
 class Amplifier:
