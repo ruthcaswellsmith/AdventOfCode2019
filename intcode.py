@@ -8,6 +8,7 @@ from enum import Enum, auto
 class ParameterMode(int, Enum):
     POSITION = 0
     IMMEDIATE = 1
+    RELATIVE = 2
 
     @classmethod
     def get_mode(cls, mode: int) -> ParameterMode:
@@ -27,6 +28,7 @@ class OpcodeType(int, Enum):
     JUMP_IF_FALSE = (6, 2)
     LESS_THAN = (7, 3)
     EQUALS = (8, 3)
+    ADJUST_RELATIVE = (9, 1)
     TERMINATE = (99, 0)
 
     def __new__(cls, value, num_params):
@@ -84,11 +86,14 @@ class Status(str, Enum):
 
 
 class Program:
+    LARGE = 10_000
+
     def __init__(self, line: str):
         self.initial_memory = [int(ele) for ele in line.split(',')]
         self.memory: List[int] = []
         self.ptr: int = 0
         self.status = Status.WAITING_FOR_INPUT
+        self.relative_base = 0
         self.reset()
 
         self.execution_methods = {
@@ -99,13 +104,14 @@ class Program:
             OpcodeType.JUMP_IF_TRUE: self._jump_if_true,
             OpcodeType.JUMP_IF_FALSE: self._jump_if_false,
             OpcodeType.LESS_THAN: self._less_than,
-            OpcodeType.EQUALS: self._equals
+            OpcodeType.EQUALS: self._equals,
+            OpcodeType.ADJUST_RELATIVE: self._adjust_relative
         }
         self.input_handler = InputHandler()
         self.outputs = deque()
 
     def reset(self):
-        self.memory = self.initial_memory.copy()
+        self.memory = self.initial_memory.copy() + [0] * self.LARGE
         self.ptr = 0
 
     def add_input_value(self, val: int):
@@ -135,7 +141,8 @@ class Program:
 
     def _get_parameter_pos(self, op: Operator, num_param: int) -> int:
         return self.ptr + num_param if op.param_modes[num_param] == ParameterMode.IMMEDIATE else \
-            self.memory[self.ptr + num_param]
+            self.memory[self.ptr + num_param] if op.param_modes[num_param] == ParameterMode.POSITION else \
+            self.relative_base + self.memory[self.ptr + num_param]
 
     def _add(self, opcode_type: OpcodeType, positions: List[int]):
         self.memory[positions[2]] = self.memory[positions[0]] + self.memory[positions[1]]
@@ -173,4 +180,8 @@ class Program:
         self.memory[positions[2]] = 1 if \
             self.memory[positions[0]] == self.memory[positions[1]] else \
             0
+        self.ptr += opcode_type.num_params
+
+    def _adjust_relative(self, opcode_type: OpcodeType, positions: List[int]):
+        self.relative_base += self.memory[positions[0]]
         self.ptr += opcode_type.num_params
