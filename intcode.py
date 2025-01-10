@@ -117,6 +117,9 @@ class Program:
     def add_input_value(self, val: int):
         self.input_handler.add_input(val)
 
+    def get_output_value(self) -> int:
+        return self.outputs.popleft()
+
     def run(self):
         op = Operator.get_operator(self.memory[self.ptr])
         self.update_status(op)
